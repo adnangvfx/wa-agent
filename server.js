@@ -1,8 +1,3 @@
-// ═══════════════════════════════════════════════════
-//  WhatsApp AI Agent — Backend Server
-//  Deploy on Railway.app
-// ═══════════════════════════════════════════════════
-
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -12,264 +7,125 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 app.use(cors());
-// Serve from public/ folder OR root (works both ways)
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname));
-
-// Root → index.html (works whether it's in public/ or root)
 app.get('/', (req, res) => {
-  const publicPath = path.join(__dirname, 'public', 'index.html');
-  const rootPath = path.join(__dirname, 'index.html');
-  if (fs.existsSync(publicPath)) res.sendFile(publicPath);
-  else if (fs.existsSync(rootPath)) res.sendFile(rootPath);
-  else res.send('Server is running! index.html not found.');
+  const p1 = path.join(__dirname, 'public', 'index.html');
+  const p2 = path.join(__dirname, 'index.html');
+  if (fs.existsSync(p1)) return res.sendFile(p1);
+  if (fs.existsSync(p2)) return res.sendFile(p2);
+  res.send('<h2>Server Running!</h2>');
 });
+
+const CONFIG = {
+  WA_TOKEN:     process.env.WA_TOKEN     || 'REPLACE_WA_TOKEN',
+  WA_PHONE_ID:  process.env.WA_PHONE_ID  || '1147866315071395',
+  CLAUDE_KEY:   process.env.CLAUDE_KEY   || 'REPLACE_CLAUDE_KEY',
+  VERIFY_TOKEN: process.env.VERIFY_TOKEN || 'WA_SRNMLAM3MN',
+  product: {
+    name: 'à¦•à§à¦¯à¦¾à¦¨à¦­à¦¾ à¦ªà§à¦°à§‹ à§§ à¦¬à¦›à¦°',
+    price: '1500', discount: '999',
+    benefits: 'âœ… à§§ à¦¬à¦›à¦°à§‡à¦° à¦—à§à¦¯à¦¾à¦°à¦¾à¦¨à§à¦Ÿà¦¿\nâœ… à¦¤à¦¾à§Žà¦•à§à¦·à¦£à¦¿à¦• à¦¡à§‡à¦²à¦¿à¦­à¦¾à¦°à¦¿\nâœ… à§¨à§ª/à§­ à¦¸à¦¾à¦ªà§‹à¦°à§à¦Ÿ',
+    desc: 'à¦…à¦«à¦¿à¦¶à¦¿à¦¯à¦¼à¦¾à¦² à¦•à§à¦¯à¦¾à¦¨à¦­à¦¾ à¦ªà§à¦°à§‹'
+  },
+  payment: {
+    method: 'bkash', number: '01XXXXXXXXX',
+    name: 'Adnan Sami',
+    instructions: 'à¦ªà§‡à¦®à§‡à¦¨à§à¦Ÿ à¦•à¦°à¦¾à¦° à¦ªà¦°à§‡ à¦¸à§à¦•à§à¦°à¦¿à¦¨à¦¶à¦Ÿ à¦ªà¦¾à¦ à¦¾à¦¨à¥¤'
+  },
+  keywords: ['à¦ªà§à¦°à¦¡à¦¾à¦•à§à¦Ÿ','à¦¦à¦¾à¦®','à¦•à¦¿à¦¨à¦¤à§‡','à¦…à¦°à§à¦¡à¦¾à¦°','price','buy','à¦¨à¦¿à¦¤à§‡ à¦šà¦¾à¦‡','à¦ªà§à¦¯à¦¾à¦•à§‡à¦œ','à¦•à¦¤','à¦•à§à¦¯à¦¾à¦¨à¦­à¦¾','canva','à¦¬à§à¦°à§à¦¯à¦¾à¦¨à§à¦¡','design','à¦¡à¦¿à¦œà¦¾à¦‡à¦¨','à¦¹à§à¦¯à¦¾à¦²à§‹','hello','hi','à¦¹à¦¾à¦‡','à¦†à¦¸','salaam','à¦œà¦¾à¦¨à¦¤à§‡']
+};
 
 const DB_FILE = path.join(__dirname, 'db.json');
-
-// ── Simple JSON Database ──────────────────────────
 function readDB() {
+  try { if (!fs.existsSync(DB_FILE)) return { conversations:[], stats:{total:0,replied:0,leads:0} }; return JSON.parse(fs.readFileSync(DB_FILE,'utf8')); }
+  catch { return { conversations:[], stats:{total:0,replied:0,leads:0} }; }
+}
+function writeDB(d) { try { fs.writeFileSync(DB_FILE, JSON.stringify(d,null,2)); } catch(e){} }
+function log(m) { console.log(`[${new Date().toLocaleTimeString()}] ${m}`); }
+
+async function sendWA(to, message) {
   try {
-    if (!fs.existsSync(DB_FILE)) return { users: {}, conversations: [] };
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  } catch { return { users: {}, conversations: [] }; }
-}
-
-function writeDB(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-}
-
-// ── Helpers ───────────────────────────────────────
-function log(msg) {
-  console.log(`[${new Date().toLocaleTimeString('bn-BD')}] ${msg}`);
-}
-
-// ── WhatsApp Message Sender ───────────────────────
-async function sendWhatsAppMessage(phoneId, waToken, to, message) {
-  const url = `https://graph.facebook.com/v19.0/${phoneId}/messages`;
-  await axios.post(url, {
-    messaging_product: 'whatsapp',
-    to,
-    type: 'text',
-    text: { body: message }
-  }, {
-    headers: {
-      'Authorization': `Bearer ${waToken}`,
-      'Content-Type': 'application/json'
-    }
-  });
-}
-
-// ── Claude AI Response Generator ─────────────────
-async function generateAIResponse(claudeKey, product, payment, keywords, userMessage, welcomeMsg) {
-  const lower = userMessage.toLowerCase();
-  const kws = keywords.map(k => k.toLowerCase());
-  const hasKeyword = kws.some(k => lower.includes(k));
-
-  if (!hasKeyword) return null; // ignore করো
-
-  const discountLine = product.discount && product.discount < product.price
-    ? `💥 বিশেষ অফার: ~~৳${product.price}~~ → *৳${product.discount}* (${Math.round((1 - product.discount / product.price) * 100)}% ছাড়!)`
-    : `💰 মূল্য: *৳${product.price}*`;
-
-  const payMethods = { bkash: 'বিকাশ', nagad: 'নগদ', rocket: 'রকেট', bank: 'ব্যাংক ট্রান্সফার', card: 'কার্ড' };
-  const payInfo = payment.number
-    ? `\n\n💳 *পেমেন্ট পদ্ধতি:* ${payMethods[payment.method] || payment.method}\n📱 *নম্বর:* ${payment.number}${payment.name ? '\n👤 নাম: ' + payment.name : ''}${payment.instructions ? '\n\n📌 ' + payment.instructions : ''}`
-    : '';
-
-  const systemPrompt = `তুমি একটি বাংলা ভাষার AI বিক্রয় সহকারী। তুমি নিচের প্রডাক্টটি বিক্রি করো।
-
-প্রডাক্ট: ${product.name}
-${discountLine}
-সুবিধা: ${product.benefits}
-${product.desc ? 'বিবরণ: ' + product.desc : ''}
-${payInfo}
-
-নিয়ম:
-- সবসময় বাংলায় কথা বলো
-- মানুষের মতো করে কথা বলো, রোবটিক না
-- ছোট ও আকর্ষণীয় উত্তর দাও
-- কাস্টমারকে কিনতে উৎসাহিত করো
-- পেমেন্ট তথ্য দিয়ে অর্ডার করতে বলো
-- কখনো মিথ্যা তথ্য দেবে না`;
-
-  const response = await axios.post('https://api.anthropic.com/v1/messages', {
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 500,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }]
-  }, {
-    headers: {
-      'x-api-key': claudeKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json'
-    }
-  });
-
-  return response.data.content[0].text;
-}
-
-// ══════════════════════════════════════════════════
-//  ROUTES — ADMIN API
-// ══════════════════════════════════════════════════
-
-// Save user config (product, payment, keywords, API keys)
-app.post('/api/save-config', (req, res) => {
-  const { userId, claudeKey, waToken, waPhoneId, waVerifyToken, product, payment, keywords, welcomeMsg, settings } = req.body;
-  if (!userId || !claudeKey || !waPhoneId) {
-    return res.status(400).json({ ok: false, error: 'userId, claudeKey, waPhoneId আবশ্যক' });
-  }
-  const db = readDB();
-  db.users[userId] = {
-    claudeKey, waToken, waPhoneId, waVerifyToken,
-    product: product || {},
-    payment: payment || {},
-    keywords: keywords || ['প্রডাক্ট', 'দাম', 'কিনতে চাই', 'অর্ডার', 'price', 'buy', 'নিতে চাই'],
-    welcomeMsg: welcomeMsg || '',
-    settings: settings || { ai: true, welcome: true, ignoreOthers: true },
-    createdAt: db.users[userId]?.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    stats: db.users[userId]?.stats || { total: 0, replied: 0, leads: 0 }
-  };
-  writeDB(db);
-  log(`Config saved for user: ${userId}`);
-  res.json({ ok: true, message: 'কনফিগ সেভ হয়েছে!' });
-});
-
-// Get config
-app.get('/api/config/:userId', (req, res) => {
-  const db = readDB();
-  const user = db.users[req.params.userId];
-  if (!user) return res.status(404).json({ ok: false, error: 'ইউজার পাওয়া যায়নি' });
-  // Hide sensitive keys partially
-  const safe = { ...user, claudeKey: user.claudeKey ? '***' + user.claudeKey.slice(-6) : '', waToken: user.waToken ? '***' + user.waToken.slice(-6) : '' };
-  res.json({ ok: true, config: safe });
-});
-
-// Get conversations
-app.get('/api/conversations/:userId', (req, res) => {
-  const db = readDB();
-  const convos = (db.conversations || []).filter(c => c.userId === req.params.userId);
-  res.json({ ok: true, conversations: convos.slice(-50) }); // last 50
-});
-
-// Stats
-app.get('/api/stats/:userId', (req, res) => {
-  const db = readDB();
-  const user = db.users[req.params.userId];
-  if (!user) return res.status(404).json({ ok: false });
-  res.json({ ok: true, stats: user.stats || {} });
-});
-
-// Test agent (without WhatsApp)
-app.post('/api/test-agent', async (req, res) => {
-  const { userId, message } = req.body;
-  const db = readDB();
-  const user = db.users[userId];
-  if (!user) return res.status(404).json({ ok: false, error: 'ইউজার পাওয়া যায়নি' });
-  try {
-    const reply = await generateAIResponse(
-      user.claudeKey, user.product, user.payment,
-      user.keywords, message, user.welcomeMsg
+    await axios.post(`https://graph.facebook.com/v19.0/${CONFIG.WA_PHONE_ID}/messages`,
+      { messaging_product:'whatsapp', to, type:'text', text:{body:message} },
+      { headers:{'Authorization':`Bearer ${CONFIG.WA_TOKEN}`,'Content-Type':'application/json'} }
     );
-    res.json({ ok: true, reply: reply || '(এই মেসেজে কোনো কীওয়ার্ড নেই — উপেক্ষা করা হয়েছে)' });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
+    log(`âœ… Sent to ${to}`);
+  } catch(e) { log(`âŒ Send error: ${e.response?.data?.error?.message||e.message}`); }
+}
 
-// ══════════════════════════════════════════════════
-//  WEBHOOK — WhatsApp incoming messages
-// ══════════════════════════════════════════════════
+async function getAIReply(userMsg) {
+  const lower = userMsg.toLowerCase();
+  const hasKw = CONFIG.keywords.some(k => lower.includes(k.toLowerCase()));
+  if (!hasKw) return null;
+  const p = CONFIG.product; const pay = CONFIG.payment;
+  const disc = p.discount && Number(p.discount) < Number(p.price)
+    ? `à¦¬à¦¿à¦¶à§‡à¦· à¦…à¦«à¦¾à¦°: ~~à§³${p.price}~~ â†’ à¦à¦–à¦¨ à¦®à¦¾à¦¤à§à¦° *à§³${p.discount}* (${Math.round((1-p.discount/p.price)*100)}% à¦›à¦¾à¦¡à¦¼!)`
+    : `à¦®à§‚à¦²à§à¦¯: *à§³${p.price}*`;
+  const methods = {bkash:'à¦¬à¦¿à¦•à¦¾à¦¶',nagad:'à¦¨à¦—à¦¦',rocket:'à¦°à¦•à§‡à¦Ÿ',bank:'à¦¬à§à¦¯à¦¾à¦‚à¦•',card:'à¦•à¦¾à¦°à§à¦¡'};
+  const payTxt = pay.number ? `\n\nðŸ’³ à¦ªà§‡à¦®à§‡à¦¨à§à¦Ÿ: *${methods[pay.method]||pay.method}*\nðŸ“± à¦¨à¦®à§à¦¬à¦°: *${pay.number}*\nðŸ‘¤ à¦¨à¦¾à¦®: ${pay.name}\n\nðŸ“Œ ${pay.instructions}` : '';
+  const sys = `à¦¤à§à¦®à¦¿ à¦à¦•à¦œà¦¨ à¦¬à¦¾à¦‚à¦²à¦¾à¦¦à§‡à¦¶à§€ à¦…à¦¨à¦²à¦¾à¦‡à¦¨ à¦¶à¦ªà§‡à¦° AI à¦¸à§‡à¦²à¦¸ à¦à¦œà§‡à¦¨à§à¦Ÿà¥¤\n\nà¦ªà§à¦°à¦¡à¦¾à¦•à§à¦Ÿ: ${p.name}\nðŸ’° ${disc}\nâœ¨ à¦¸à§à¦¬à¦¿à¦§à¦¾:\n${p.benefits}\n${p.desc?'ðŸ“ '+p.desc:''}${payTxt}\n\nà¦¨à¦¿à¦¯à¦¼à¦®:\n- à¦¬à¦¾à¦‚à¦²à¦¾à¦¯à¦¼ à¦¬à¦¨à§à¦§à§à¦° à¦®à¦¤à§‹ à¦•à¦¥à¦¾ à¦¬à¦²à§‹\n- à¦›à§‹à¦Ÿ à¦“ à¦†à¦•à¦°à§à¦·à¦£à§€à¦¯à¦¼ à¦‰à¦¤à§à¦¤à¦° à¦¦à¦¾à¦“ (à§©-à§« à¦²à¦¾à¦‡à¦¨)\n- à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦°à¦•à§‡ à¦•à¦¿à¦¨à¦¤à§‡ à¦‰à§Žà¦¸à¦¾à¦¹à§€ à¦•à¦°à§‹\n- à¦‡à¦®à§‹à¦œà¦¿ à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§‹\n- à¦•à¦–à¦¨à§‹ à¦®à¦¿à¦¥à§à¦¯à¦¾ à¦¬à¦²à¦¬à§‡ à¦¨à¦¾`;
+  const resp = await axios.post('https://api.anthropic.com/v1/messages',
+    { model:'claude-sonnet-4-20250514', max_tokens:400, system:sys, messages:[{role:'user',content:userMsg}] },
+    { headers:{'x-api-key':CONFIG.CLAUDE_KEY,'anthropic-version':'2023-06-01','Content-Type':'application/json'} }
+  );
+  return resp.data.content[0].text;
+}
 
-// Verification (GET)
-app.get('/webhook/:userId', (req, res) => {
-  const { userId } = req.params;
-  const db = readDB();
-  const user = db.users[userId];
-  if (!user) return res.sendStatus(404);
-
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-
-  if (mode === 'subscribe' && token === user.waVerifyToken) {
-    log(`Webhook verified for user: ${userId}`);
-    res.status(200).send(challenge);
-  } else {
-    res.sendStatus(403);
-  }
-});
-
-// Incoming message (POST)
-app.post('/webhook/:userId', async (req, res) => {
-  const { userId } = req.params;
-  res.sendStatus(200); // Always respond 200 quickly to WhatsApp
-
+async function handleIncoming(body) {
   try {
-    const db = readDB();
-    const user = db.users[userId];
-    if (!user || !user.settings?.ai) return;
-
-    const body = req.body;
     if (body.object !== 'whatsapp_business_account') return;
-
-    const entry = body.entry?.[0];
-    const changes = entry?.changes?.[0];
-    const value = changes?.value;
-    const messages = value?.messages;
-
-    if (!messages || messages.length === 0) return;
-
+    const messages = body.entry?.[0]?.changes?.[0]?.value?.messages;
+    if (!messages?.length) return;
     const msg = messages[0];
     if (msg.type !== 'text') return;
-
-    const from = msg.from;
-    const text = msg.text.body;
-    const timestamp = new Date().toISOString();
-
-    log(`Message from ${from}: "${text}"`);
-
-    // Update stats
-    user.stats = user.stats || { total: 0, replied: 0, leads: 0 };
-    user.stats.total++;
-
-    // Save conversation
-    db.conversations = db.conversations || [];
-    db.conversations.push({ userId, from, text, type: 'incoming', timestamp });
-
-    // Generate AI response
-    const reply = await generateAIResponse(
-      user.claudeKey, user.product, user.payment,
-      user.keywords, text, user.welcomeMsg
-    );
-
+    const from = msg.from; const text = msg.text.body;
+    log(`ðŸ“© From ${from}: "${text}"`);
+    const db = readDB();
+    db.stats.total++;
+    db.conversations.push({from,text,type:'incoming',time:new Date().toISOString()});
+    const reply = await getAIReply(text);
     if (reply) {
-      await sendWhatsAppMessage(user.waPhoneId, user.waToken, from, reply);
-      user.stats.replied++;
-      if (reply.includes('পেমেন্ট') || reply.includes('বিকাশ') || reply.includes('নগদ')) {
-        user.stats.leads++;
-      }
-      db.conversations.push({ userId, from: 'AI Agent', text: reply, type: 'outgoing', timestamp: new Date().toISOString() });
-      log(`Reply sent to ${from}`);
-    } else {
-      log(`Ignored message from ${from} (no keyword match)`);
-    }
-
-    db.users[userId] = user;
+      await sendWA(from, reply);
+      db.stats.replied++;
+      if (reply.includes('à¦¬à¦¿à¦•à¦¾à¦¶')||reply.includes('à¦¨à¦—à¦¦')||reply.includes('à¦ªà§‡à¦®à§‡à¦¨à§à¦Ÿ')) db.stats.leads++;
+      db.conversations.push({from:'AI',text:reply,type:'outgoing',time:new Date().toISOString()});
+    } else { log('â­ï¸ Ignored - no keyword'); }
+    if (db.conversations.length > 200) db.conversations = db.conversations.slice(-200);
     writeDB(db);
+  } catch(e) { log(`âŒ Error: ${e.message}`); }
+}
 
-  } catch (err) {
-    log(`Error: ${err.message}`);
+// Webhook verify
+app.get('/webhook', (req,res) => {
+  if (req.query['hub.mode']==='subscribe' && req.query['hub.verify_token']===CONFIG.VERIFY_TOKEN) {
+    log('âœ… Webhook verified!'); return res.send(req.query['hub.challenge']);
   }
+  res.sendStatus(403);
+});
+app.get('/webhook/:id', (req,res) => {
+  if (req.query['hub.mode']==='subscribe' && req.query['hub.verify_token']===CONFIG.VERIFY_TOKEN) {
+    log('âœ… Webhook verified!'); return res.send(req.query['hub.challenge']);
+  }
+  res.sendStatus(403);
 });
 
-// Health check
-app.get('/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+// Webhook incoming
+app.post('/webhook', async (req,res) => { res.sendStatus(200); await handleIncoming(req.body); });
+app.post('/webhook/:id', async (req,res) => { res.sendStatus(200); await handleIncoming(req.body); });
 
-// ── Start ─────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  log(`🚀 Server চালু হয়েছে: port ${PORT}`);
-  log(`📱 Webhook URL: https://YOUR-APP.railway.app/webhook/YOUR-USER-ID`);
+// Admin APIs
+app.get('/api/stats', (req,res) => res.json({ok:true,stats:readDB().stats}));
+app.get('/api/conversations', (req,res) => res.json({ok:true,conversations:readDB().conversations.slice(-50)}));
+app.post('/api/product', (req,res) => { Object.assign(CONFIG.product,req.body); res.json({ok:true}); });
+app.post('/api/payment', (req,res) => { Object.assign(CONFIG.payment,req.body); res.json({ok:true}); });
+app.post('/api/keywords', (req,res) => { if(req.body.keywords) CONFIG.keywords=req.body.keywords; res.json({ok:true}); });
+app.post('/api/test', async (req,res) => {
+  try { const r = await getAIReply(req.body.message||''); res.json({ok:true,reply:r||'(à¦•à§€à¦“à¦¯à¦¼à¦¾à¦°à§à¦¡ à¦¨à§‡à¦‡)'}); }
+  catch(e) { res.status(500).json({ok:false,error:e.message}); }
 });
+app.get('/health', (req,res) => res.json({ok:true,time:new Date().toISOString()}));
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => { log(`ðŸš€ Server on port ${PORT}`); });
