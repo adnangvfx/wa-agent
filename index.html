@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#020b18">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="WA Agent">
+<title>WhatsApp AI Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --db: #020b18; --b1: #041529; --b2: #071f3d; --b3: #0a2a52;
+  --ac: #1e88e5; --acb: #42a5f5; --neon: #00e5ff;
+  --ok: #00e676; --warn: #ffd740; --err: #ff5252;
+  --tw: #fff; --tm: rgba(255,255,255,.6); --tf: rgba(255,255,255,.25);
+  --cb: rgba(255,255,255,.05); --cbr: rgba(255,255,255,.1);
+  --ib: rgba(255,255,255,.08); --r: 16px; --rs: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'Hind Siliguri', sans-serif; background: var(--db); color: var(--tw); min-height: 100vh; overflow-x: hidden; }
+
+/* BG */
+.bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .12; animation: of 12s ease-in-out infinite; }
+.orb:nth-child(1) { width:350px; height:350px; background:#1565c0; top:-80px; left:-80px; }
+.orb:nth-child(2) { width:280px; height:280px; background:#0288d1; top:45%; right:-60px; animation-delay:-4s; }
+.orb:nth-child(3) { width:220px; height:220px; background:#01579b; bottom:-40px; left:35%; animation-delay:-8s; }
+.grid { position:absolute; inset:0; background-image:linear-gradient(rgba(30,136,229,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(30,136,229,.05) 1px,transparent 1px); background-size:40px 40px; animation:gp 8s ease-in-out infinite; }
+@keyframes of { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(25px,-15px) scale(1.04)} 66%{transform:translate(-15px,25px) scale(.96)} }
+@keyframes gp { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+/* SPLASH */
+#splash { position:fixed; inset:0; z-index:100; background:var(--db); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; transition:opacity .7s,transform .7s; }
+.sl { width:90px; height:90px; position:relative; animation:sp .8s cubic-bezier(.34,1.56,.64,1) both; }
+.sr { position:absolute; border-radius:50%; border:2px solid var(--ac); animation:rp 2s ease-in-out infinite; }
+.sr:nth-child(1){inset:-8px} .sr:nth-child(2){inset:-18px;border-color:rgba(30,136,229,.5);animation-delay:-.5s} .sr:nth-child(3){inset:-28px;border-color:rgba(30,136,229,.2);animation-delay:-1s}
+.sl-icon { width:100%; height:100%; background:linear-gradient(135deg,var(--ac),var(--neon)); border-radius:22px; display:flex; align-items:center; justify-content:center; font-size:44px; }
+@keyframes sp { 0%{transform:scale(0) rotate(-180deg);opacity:0} 100%{transform:scale(1) rotate(0);opacity:1} }
+@keyframes rp { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.06);opacity:.6} }
+.st { font-size:26px; font-weight:700; text-align:center; animation:fu .8s .3s ease both; }
+.ss { font-size:13px; color:var(--tm); animation:fu .8s .5s ease both; }
+.sb { width:180px; height:3px; background:rgba(255,255,255,.1); border-radius:2px; overflow:hidden; animation:fu .8s .7s ease both; }
+.sbf { height:100%; background:linear-gradient(90deg,var(--ac),var(--neon)); animation:lb 2.2s .5s ease forwards; width:0; }
+@keyframes fu { 0%{opacity:0;transform:translateY(16px)} 100%{opacity:1;transform:translateY(0)} }
+@keyframes lb { to{width:100%} }
+
+/* SETUP SCREEN */
+#setupScreen { position:fixed; inset:0; z-index:80; background:var(--db); display:none; flex-direction:column; align-items:center; justify-content:center; padding:20px; gap:20px; overflow-y:auto; }
+.setup-box { width:100%; max-width:420px; background:var(--cb); border:1px solid var(--cbr); border-radius:var(--r); padding:24px; backdrop-filter:blur(12px); }
+.setup-logo { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:4px; }
+.setup-logo-icon { width:48px; height:48px; background:linear-gradient(135deg,var(--ac),var(--neon)); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:0 0 24px rgba(0,229,255,.3); }
+.setup-title { font-size:22px; font-weight:700; }
+.setup-sub { font-size:13px; color:var(--tm); text-align:center; margin-bottom:20px; line-height:1.5; }
+
+/* APP */
+#app { position:relative; z-index:1; min-height:100vh; display:none; flex-direction:column; }
+
+/* HEADER */
+header { background:rgba(2,11,24,.92); backdrop-filter:blur(20px); border-bottom:1px solid var(--cbr); padding:12px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:50; }
+.hl { width:36px; height:36px; background:linear-gradient(135deg,var(--ac),var(--neon)); border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; animation:lp 3s ease-in-out infinite; }
+@keyframes lp { 0%,100%{box-shadow:0 0 16px rgba(30,136,229,.4)} 50%{box-shadow:0 0 28px rgba(0,229,255,.6)} }
+.hi h1 { font-size:17px; font-weight:700; }
+.hi p { font-size:11px; color:var(--tm); }
+.hst { margin-left:auto; display:flex; align-items:center; gap:5px; font-size:11px; color:var(--ok); background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.3); padding:4px 10px; border-radius:20px; }
+.sd { width:7px; height:7px; background:var(--ok); border-radius:50%; animation:bk 2s ease-in-out infinite; }
+@keyframes bk { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+/* TABS */
+.tabs { display:flex; padding:10px 14px; overflow-x:auto; scrollbar-width:none; gap:4px; }
+.tabs::-webkit-scrollbar{display:none}
+.tab { flex:1; min-width:0; padding:9px 6px; border:none; border-radius:var(--rs); background:transparent; color:var(--tm); font-family:'Hind Siliguri',sans-serif; font-size:11px; font-weight:500; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; transition:all .3s; position:relative; }
+.ti { font-size:18px; }
+.tab.active { color:var(--acb); background:rgba(30,136,229,.12); }
+.tab.active::after { content:''; position:absolute; bottom:0; left:20%; right:20%; height:2px; background:linear-gradient(90deg,var(--ac),var(--neon)); border-radius:1px; }
+.tab:active{transform:scale(.95)}
+
+/* PAGES */
+.page { display:none; flex-direction:column; gap:14px; padding:14px; padding-bottom:100px; animation:pi .35s ease; }
+.page.active{display:flex}
+@keyframes pi { 0%{opacity:0;transform:translateY(12px)} 100%{opacity:1;transform:translateY(0)} }
+
+/* BOTTOM NAV */
+.bnav { position:fixed; bottom:0; left:0; right:0; background:rgba(2,11,24,.96); backdrop-filter:blur(20px); border-top:1px solid var(--cbr); z-index:50; padding:4px 0 calc(4px + env(safe-area-inset-bottom)); }
+
+/* CARDS */
+.card { background:var(--cb); border:1px solid var(--cbr); border-radius:var(--r); padding:16px; backdrop-filter:blur(10px); animation:ci .4s ease both; }
+@keyframes ci { 0%{opacity:0;transform:translateY(8px)} 100%{opacity:1;transform:translateY(0)} }
+.card:nth-child(1){animation-delay:.04s}.card:nth-child(2){animation-delay:.08s}.card:nth-child(3){animation-delay:.12s}.card:nth-child(4){animation-delay:.16s}
+.ct { font-size:14px; font-weight:600; margin-bottom:12px; display:flex; align-items:center; gap:7px; color:var(--acb); }
+
+/* FORM */
+.fg { margin-bottom:12px; }
+.fl { font-size:11px; color:var(--tm); margin-bottom:5px; display:block; font-weight:500; text-transform:uppercase; letter-spacing:.5px; }
+.fi,.ft,.fs { width:100%; background:var(--ib); border:1px solid var(--cbr); border-radius:var(--rs); padding:11px 13px; color:var(--tw); font-family:'Hind Siliguri',sans-serif; font-size:13px; outline:none; transition:all .3s; -webkit-appearance:none; }
+.fi:focus,.ft:focus,.fs:focus { border-color:var(--ac); background:rgba(30,136,229,.1); box-shadow:0 0 0 3px rgba(30,136,229,.12); }
+.fi::placeholder,.ft::placeholder{color:var(--tf)}
+.ft { resize:vertical; min-height:72px; }
+.fs option{background:#071f3d;color:#fff}
+.pw { position:relative; }
+.pw .fi { padding-right:42px; }
+.eye { position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:16px; color:var(--tm); background:none; border:none; }
+
+/* BUTTONS */
+.btn { width:100%; padding:13px; border:none; border-radius:var(--rs); font-family:'Hind Siliguri',sans-serif; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; transition:all .3s; position:relative; overflow:hidden; }
+.btn:active{transform:scale(.98)}
+.bp { background:linear-gradient(135deg,var(--ac),#1565c0); color:#fff; box-shadow:0 4px 18px rgba(30,136,229,.35); }
+.bs { background:linear-gradient(135deg,#00c853,#00897b); color:#fff; box-shadow:0 4px 18px rgba(0,200,83,.3); }
+.bd { background:linear-gradient(135deg,#e53935,#b71c1c); color:#fff; }
+.bo { background:transparent; border:1px solid var(--cbr); color:var(--tw); }
+.bn { background:transparent; border:1px solid var(--neon); color:var(--neon); }
+.bsm { width:auto; padding:8px 14px; font-size:12px; }
+
+/* BADGES */
+.badge { display:inline-flex; align-items:center; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; }
+.bg-blue { background:rgba(30,136,229,.2); color:var(--acb); border:1px solid rgba(30,136,229,.3); }
+.bg-green { background:rgba(0,230,118,.12); color:var(--ok); border:1px solid rgba(0,230,118,.3); }
+.bg-yellow { background:rgba(255,215,64,.12); color:var(--warn); border:1px solid rgba(255,215,64,.3); }
+.bg-red { background:rgba(255,82,82,.12); color:var(--err); border:1px solid rgba(255,82,82,.3); }
+
+/* STATS */
+.sg { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.sc { background:var(--cb); border:1px solid var(--cbr); border-radius:var(--rs); padding:14px; text-align:center; }
+.sv { font-size:28px; font-weight:700; }
+.sl2 { font-size:11px; color:var(--tm); margin-top:2px; }
+.s-b .sv{color:var(--acb)} .s-g .sv{color:var(--ok)} .s-y .sv{color:var(--warn)} .s-r .sv{color:var(--err)}
+
+/* TOGGLE */
+.tr { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+.tr:last-child{border-bottom:none}
+.tl{font-size:13px}.td{font-size:11px;color:var(--tm);margin-top:2px}
+.tog { width:44px; height:24px; background:rgba(255,255,255,.15); border-radius:12px; position:relative; cursor:pointer; transition:background .3s; flex-shrink:0; }
+.tog.on { background:linear-gradient(90deg,var(--ac),var(--neon)); box-shadow:0 0 10px rgba(0,229,255,.35); }
+.tok { position:absolute; top:3px; left:3px; width:18px; height:18px; background:#fff; border-radius:50%; transition:transform .3s cubic-bezier(.34,1.56,.64,1); box-shadow:0 2px 6px rgba(0,0,0,.3); }
+.tog.on .tok{transform:translateX(20px)}
+
+/* CHAT */
+.cl { display:flex; flex-direction:column; gap:10px; max-height:380px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(30,136,229,.3) transparent; }
+.cm { display:flex; flex-direction:column; gap:2px; animation:mi .35s ease; }
+@keyframes mi{0%{opacity:0;transform:translateX(-8px)}100%{opacity:1;transform:translateX(0)}}
+.cm.agent{align-items:flex-start}.cm.user{align-items:flex-end}
+.ms{font-size:10px;color:var(--tm);padding:0 4px}
+.mb { max-width:88%; padding:9px 13px; border-radius:14px; font-size:13px; line-height:1.5; }
+.agent .mb { background:rgba(30,136,229,.15); border:1px solid rgba(30,136,229,.22); border-top-left-radius:3px; }
+.user .mb { background:rgba(0,229,255,.1); border:1px solid rgba(0,229,255,.18); border-top-right-radius:3px; text-align:right; }
+.mt{font-size:9px;color:var(--tf);padding:0 4px}
+
+/* TAGS */
+.tc{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.tag{display:inline-flex;align-items:center;gap:5px;background:rgba(30,136,229,.15);border:1px solid rgba(30,136,229,.28);border-radius:20px;padding:4px 10px;font-size:12px;color:var(--acb)}
+.trm{cursor:pointer;color:var(--tm);font-size:13px;transition:color .2s}
+.trm:hover{color:var(--err)}
+
+/* NOTIFY */
+.notify{position:fixed;top:76px;left:50%;transform:translateX(-50%) translateY(-16px);background:rgba(0,230,118,.15);border:1px solid rgba(0,230,118,.4);color:var(--ok);padding:10px 18px;border-radius:28px;font-size:13px;font-weight:500;z-index:200;opacity:0;transition:all .35s;white-space:nowrap;backdrop-filter:blur(10px)}
+.notify.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.notify.err{background:rgba(255,82,82,.15);border-color:rgba(255,82,82,.4);color:var(--err)}
+
+/* SPINNER */
+.spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:sp2 .8s linear infinite}
+@keyframes sp2{to{transform:rotate(360deg)}}
+
+/* AI PREVIEW */
+.aip { background:rgba(0,0,0,.3); border:1px solid var(--cbr); border-radius:var(--rs); padding:12px; font-size:13px; line-height:1.7; color:var(--tm); min-height:70px; }
+.aicur { display:inline-block; width:2px; height:13px; background:var(--neon); margin-left:2px; vertical-align:middle; animation:cb 1s step-end infinite; }
+@keyframes cb{0%,100%{opacity:1}50%{opacity:0}}
+
+/* TYPING */
+.tyd{display:flex;gap:3px;align-items:center;padding:6px 10px}
+.tdd{width:6px;height:6px;border-radius:50%;background:var(--ac);animation:tb 1.2s ease-in-out infinite}
+.tdd:nth-child(2){animation-delay:.2s}.tdd:nth-child(3){animation-delay:.4s}
+@keyframes tb{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-5px);opacity:1}}
+
+/* BANNER */
+.banner{background:linear-gradient(135deg,rgba(30,136,229,.18),rgba(0,229,255,.08));border:1px solid rgba(30,136,229,.28);border-radius:var(--r);padding:18px;display:flex;align-items:center;gap:12px}
+.bni{font-size:32px;flex-shrink:0}
+.bnt{font-size:15px;font-weight:700;margin-bottom:3px}
+.bns{font-size:12px;color:var(--tm);line-height:1.5}
+
+/* WEBHOOK BOX */
+.wh-box{background:rgba(0,0,0,.4);border:1px solid var(--cbr);border-radius:var(--rs);padding:12px 14px;font-family:monospace;font-size:12px;color:var(--neon);word-break:break-all;line-height:1.6}
+
+/* INFO ROW */
+.ir{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
+.ir:last-child{border-bottom:none}
+.ik{color:var(--tm)}.iv{font-weight:500;text-align:right;max-width:60%;word-break:break-all}
+
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(30,136,229,.3);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="orb"></div><div class="orb"></div><div class="orb"></div>
+  <div class="grid"></div>
+</div>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="sl">
+    <div class="sr"></div><div class="sr"></div><div class="sr"></div>
+    <div class="sl-icon">🤖</div>
+  </div>
+  <div class="st">WhatsApp <span style="color:var(--neon)">AI এজেন্ট</span></div>
+  <div class="ss">স্মার্ট সেলস অটোমেশন প্ল্যাটফর্ম</div>
+  <div class="sb"><div class="sbf"></div></div>
+</div>
+
+<!-- SETUP SCREEN -->
+<div id="setupScreen">
+  <div class="setup-box">
+    <div class="setup-logo">
+      <div class="setup-logo-icon">🤖</div>
+      <div class="setup-title">প্রথমে সেটআপ করুন</div>
+    </div>
+    <div class="setup-sub">
+      আপনার নিজস্ব API Key দিয়ে এজেন্ট চালু করুন।<br>
+      প্রতিটি ইউজারের আলাদা API Key লাগবে।
+    </div>
+
+    <div class="fg">
+      <label class="fl">আপনার ইউজার ID (যেকোনো নাম) *</label>
+      <input class="fi" id="setupUserId" placeholder="যেমন: rahman_shop বা 01712345678">
+    </div>
+    <div class="fg">
+      <label class="fl">Claude API Key *</label>
+      <div class="pw">
+        <input class="fi" id="setupClaudeKey" type="password" placeholder="sk-ant-api03-...">
+        <button class="eye" onclick="togglePw('setupClaudeKey')">👁️</button>
+      </div>
+      <div style="margin-top:5px;font-size:11px;color:var(--tm)">
+        💡 <a href="https://console.anthropic.com" target="_blank" style="color:var(--acb)">console.anthropic.com</a> থেকে ফ্রি Key নিন
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">WhatsApp Phone Number ID *</label>
+      <input class="fi" id="setupPhoneId" placeholder="Meta Business থেকে পাবেন">
+    </div>
+    <div class="fg">
+      <label class="fl">WhatsApp Access Token *</label>
+      <div class="pw">
+        <input class="fi" id="setupWaToken" type="password" placeholder="EAAxxxxxx...">
+        <button class="eye" onclick="togglePw('setupWaToken')">👁️</button>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">Webhook Verify Token (নিজে তৈরি করুন)</label>
+      <div style="display:flex;gap:7px">
+        <input class="fi" id="setupVerifyToken" placeholder="যেকোনো গোপন পাসওয়ার্ড" style="flex:1">
+        <button class="btn bo bsm" onclick="genVerifyToken()">🎲</button>
+      </div>
+    </div>
+
+    <button class="btn bp" onclick="doSetup()" id="setupBtn">
+      ✅ শুরু করুন
+    </button>
+    <div style="margin-top:12px;font-size:11px;color:var(--tm);text-align:center">
+      আপনার API Key শুধু আপনার ব্রাউজারে সেভ থাকবে এবং সার্ভারে পাঠানো হবে সেটআপের সময়।
+    </div>
+  </div>
+</div>
+
+<div class="notify" id="notify"></div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="hl">🤖</div>
+    <div class="hi">
+      <h1>WA AI এজেন্ট</h1>
+      <p id="headerUserId">লোড হচ্ছে...</p>
+    </div>
+    <div class="hst"><div class="sd"></div><span id="agentSt">সক্রিয়</span></div>
+  </header>
+
+  <div class="bnav">
+    <div class="tabs">
+      <button class="tab active" onclick="sw('dashboard')" id="tab-dashboard"><span class="ti">📊</span><span>হোম</span></button>
+      <button class="tab" onclick="sw('product')" id="tab-product"><span class="ti">📦</span><span>প্রডাক্ট</span></button>
+      <button class="tab" onclick="sw('agent')" id="tab-agent"><span class="ti">⚙️</span><span>এজেন্ট</span></button>
+      <button class="tab" onclick="sw('webhook')" id="tab-webhook"><span class="ti">🔗</span><span>Webhook</span></button>
+      <button class="tab" onclick="sw('chat')" id="tab-chat"><span class="ti">💬</span><span>চ্যাট</span></button>
+    </div>
+  </div>
+
+  <!-- ═══ DASHBOARD ═══ -->
+  <div class="page active" id="page-dashboard">
+    <div class="banner">
+      <div class="bni">⚡</div>
+      <div>
+        <div class="bnt">এজেন্ট <span style="color:var(--neon)">চালু আছে</span></div>
+        <div class="bns">কাস্টমার মেসেজ দিলে AI স্বয়ংক্রিয়ভাবে উত্তর দেবে। Webhook সেটআপ করতে ভুলবেন না!</div>
+      </div>
+    </div>
+
+    <div class="sg">
+      <div class="sc s-b"><div class="sv" id="stTotal">—</div><div class="sl2">মোট মেসেজ</div></div>
+      <div class="sc s-g"><div class="sv" id="stReplied">—</div><div class="sl2">উত্তর দেওয়া</div></div>
+      <div class="sc s-y"><div class="sv" id="stLeads">—</div><div class="sl2">লিড</div></div>
+      <div class="sc s-r"><div class="sv" id="stIgnored">—</div><div class="sl2">উপেক্ষা</div></div>
+    </div>
+
+    <div class="card">
+      <div class="ct">📦 বর্তমান প্রডাক্ট</div>
+      <div id="dashProd"><div style="text-align:center;color:var(--tm);padding:16px;font-size:13px">⚠️ প্রডাক্ট সেটআপ করুন</div></div>
+    </div>
+
+    <div class="card">
+      <div class="ct">🔗 Webhook স্ট্যাটাস</div>
+      <div id="webhookStatus" style="padding:10px;background:rgba(255,215,64,.08);border:1px solid rgba(255,215,64,.2);border-radius:8px;font-size:13px;color:var(--warn)">
+        ⚠️ Webhook ট্যাবে গিয়ে Meta-তে Webhook সেটআপ করুন
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">🚀 ধাপ অনুসরণ করুন</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;gap:9px;align-items:center;padding:9px;background:rgba(255,255,255,.03);border-radius:8px;cursor:pointer" onclick="sw('product')">
+          <div style="width:28px;height:28px;background:rgba(30,136,229,.2);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">1️⃣</div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600">প্রডাক্ট সেটআপ</div><div style="font-size:11px;color:var(--tm)">নাম, ছবি, দাম, উপকার</div></div>
+          <span style="color:var(--tm)">→</span>
+        </div>
+        <div style="display:flex;gap:9px;align-items:center;padding:9px;background:rgba(255,255,255,.03);border-radius:8px;cursor:pointer" onclick="sw('agent')">
+          <div style="width:28px;height:28px;background:rgba(0,229,255,.1);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">2️⃣</div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600">এজেন্ট কনফিগার</div><div style="font-size:11px;color:var(--tm)">কীওয়ার্ড, পেমেন্ট, সেটিংস</div></div>
+          <span style="color:var(--tm)">→</span>
+        </div>
+        <div style="display:flex;gap:9px;align-items:center;padding:9px;background:rgba(255,255,255,.03);border-radius:8px;cursor:pointer" onclick="sw('webhook')">
+          <div style="width:28px;height:28px;background:rgba(0,230,118,.1);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">3️⃣</div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600">Webhook সেট করুন</div><div style="font-size:11px;color:var(--tm)">Meta Business-এ URL দিন</div></div>
+          <span style="color:var(--tm)">→</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn bo" onclick="logout()" style="margin-top:4px">
+      🔄 অন্য অ্যাকাউন্টে যান
+    </button>
+  </div>
+
+  <!-- ═══ PRODUCT ═══ -->
+  <div class="page" id="page-product">
+    <div class="card">
+      <div class="ct">📦 প্রডাক্ট সেটআপ</div>
+      <p style="font-size:12px;color:var(--tm);margin-bottom:14px">এখানে আপনার প্রডাক্টের তথ্য দিন। এজেন্ট এই তথ্য দিয়ে কাস্টমারকে উত্তর দেবে।</p>
+
+      <div class="fg">
+        <label class="fl">প্রডাক্টের নাম *</label>
+        <input class="fi" id="prodName" placeholder="যেমন: ক্যানভা প্রো ১ বছর">
+      </div>
+
+      <div class="fg">
+        <label class="fl">প্রডাক্টের ছবি URL</label>
+        <input class="fi" id="prodImage" placeholder="https://example.com/image.jpg">
+        <div style="margin-top:6px;font-size:11px;color:var(--tm)">💡 Imgbb.com বা Imgur-এ আপলোড করে লিংক দিন</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fg" style="margin-bottom:0">
+          <label class="fl">মূল দাম (৳) *</label>
+          <input class="fi" id="prodPrice" type="number" placeholder="১৫০০">
+        </div>
+        <div class="fg" style="margin-bottom:0">
+          <label class="fl">ডিসকাউন্ট দাম (৳)</label>
+          <input class="fi" id="prodDiscount" type="number" placeholder="৯৯৯">
+        </div>
+      </div>
+
+      <div class="fg" style="margin-top:12px">
+        <label class="fl">সুবিধা / বৈশিষ্ট্য *</label>
+        <textarea class="ft" id="prodBenefits" placeholder="✅ ১ বছরের গ্যারান্টি
+✅ তাৎক্ষণিক ডেলিভারি
+✅ ২৪/৭ সাপোর্ট
+✅ মানিব্যাক গ্যারান্টি"></textarea>
+      </div>
+
+      <div class="fg">
+        <label class="fl">বিস্তারিত বিবরণ</label>
+        <textarea class="ft" id="prodDesc" placeholder="প্রডাক্ট সম্পর্কে বাড়তি তথ্য..."></textarea>
+      </div>
+
+      <button class="btn bp" onclick="saveProduct()">💾 প্রডাক্ট সেভ করুন</button>
+    </div>
+  </div>
+
+  <!-- ═══ AGENT ═══ -->
+  <div class="page" id="page-agent">
+    <div class="card">
+      <div class="ct">🔑 ট্রিগার কীওয়ার্ড</div>
+      <p style="font-size:12px;color:var(--tm);margin-bottom:10px">কাস্টমার এই কথা বললে এজেন্ট উত্তর দেবে</p>
+      <div style="display:flex;gap:7px">
+        <input class="fi" id="kwInput" placeholder="কীওয়ার্ড লিখুন..." style="flex:1" onkeypress="if(event.key==='Enter')addKw()">
+        <button class="btn bp bsm" onclick="addKw()">যোগ</button>
+      </div>
+      <div class="tc" id="kwTags"></div>
+    </div>
+
+    <div class="card">
+      <div class="ct">💳 পেমেন্ট তথ্য</div>
+      <div class="fg">
+        <label class="fl">পেমেন্ট পদ্ধতি</label>
+        <select class="fs" id="payMethod">
+          <option value="bkash">বিকাশ</option>
+          <option value="nagad">নগদ</option>
+          <option value="rocket">রকেট</option>
+          <option value="bank">ব্যাংক ট্রান্সফার</option>
+          <option value="card">কার্ড</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">নম্বর / অ্যাকাউন্ট</label>
+        <input class="fi" id="payNum" placeholder="01XXXXXXXXX">
+      </div>
+      <div class="fg">
+        <label class="fl">অ্যাকাউন্টের নাম</label>
+        <input class="fi" id="payName" placeholder="Mohammad Rahman">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">পেমেন্ট নির্দেশনা</label>
+        <textarea class="ft" id="payInst" placeholder="পেমেন্ট করার পরে স্ক্রিনশট পাঠান।"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">⚙️ সেটিংস</div>
+      <div class="tr">
+        <div><div class="tl">🤖 AI উত্তর চালু</div><div class="td">কীওয়ার্ড দেখলে স্বয়ংক্রিয় উত্তর</div></div>
+        <div class="tog on" id="togAI" onclick="tog('AI')"><div class="tok"></div></div>
+      </div>
+      <div class="tr">
+        <div><div class="tl">🙈 অপ্রাসঙ্গিক উপেক্ষা</div><div class="td">কীওয়ার্ড ছাড়া মেসেজে চুপ থাকবে</div></div>
+        <div class="tog on" id="togIgnore" onclick="tog('Ignore')"><div class="tok"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">🧪 এজেন্ট টেস্ট করুন</div>
+      <p style="font-size:12px;color:var(--tm);margin-bottom:10px">সেভ করার আগেই পরীক্ষা করুন</p>
+      <div style="display:flex;gap:7px;margin-bottom:10px">
+        <input class="fi" id="testMsg" placeholder="কাস্টমারের মেসেজ লিখুন..." style="flex:1">
+        <button class="btn bn bsm" onclick="testAgent()">টেস্ট</button>
+      </div>
+      <div class="aip" id="testResult"><span style="color:var(--tf)">এখানে এজেন্টের উত্তর দেখা যাবে...</span></div>
+    </div>
+
+    <button class="btn bs" onclick="saveAll()">✅ সব সেটিংস সেভ করুন</button>
+  </div>
+
+  <!-- ═══ WEBHOOK ═══ -->
+  <div class="page" id="page-webhook">
+    <div class="card">
+      <div class="ct">🔗 তোমার Webhook URL</div>
+      <p style="font-size:12px;color:var(--tm);margin-bottom:10px">এই URL-টি Meta Business-এর Webhook সেকশনে দিন</p>
+      <div class="wh-box" id="webhookUrl">সেভ করার পরে Webhook URL দেখাবে...</div>
+      <button class="btn bo" style="margin-top:10px" onclick="copyWebhook()">📋 URL কপি করুন</button>
+    </div>
+
+    <div class="card">
+      <div class="ct">🔐 Verify Token</div>
+      <p style="font-size:12px;color:var(--tm);margin-bottom:10px">Meta-তে Webhook সেটআপের সময় এই Token দিন</p>
+      <div class="wh-box" id="verifyTokenDisplay">—</div>
+      <button class="btn bo" style="margin-top:10px" onclick="copyVerify()">📋 Token কপি করুন</button>
+    </div>
+
+    <div class="card">
+      <div class="ct">📖 Meta-তে Webhook সেটআপ করবেন যেভাবে</div>
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.6">
+        <div style="display:flex;gap:8px">
+          <div style="width:22px;height:22px;background:rgba(30,136,229,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:var(--acb)">১</div>
+          <div><strong>Meta for Developers</strong> → আপনার App → WhatsApp → Configuration</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="width:22px;height:22px;background:rgba(30,136,229,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:var(--acb)">২</div>
+          <div><strong>Webhook</strong> সেকশনে "Edit" ক্লিক করুন</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="width:22px;height:22px;background:rgba(30,136,229,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:var(--acb)">৩</div>
+          <div><strong>Callback URL</strong> = উপরের Webhook URL<br><strong>Verify Token</strong> = উপরের Token</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="width:22px;height:22px;background:rgba(30,136,229,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:var(--acb)">৪</div>
+          <div><strong>Verify and Save</strong> ক্লিক করুন → <strong>messages</strong> Subscribe করুন</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="width:22px;height:22px;background:rgba(0,230,118,.12);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:var(--ok)">✅</div>
+          <div>এখন কাস্টমার মেসেজ দিলে AI উত্তর দেবে!</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">⚠️ Railway Deploy নির্দেশিকা</div>
+      <div style="font-size:12px;color:var(--tm);line-height:1.8">
+        ১. GitHub-এ server.js + package.json আপলোড করুন<br>
+        ২. <a href="https://railway.app" target="_blank" style="color:var(--acb)">railway.app</a> → New Project → Deploy from GitHub<br>
+        ৩. Deploy হলে আপনার URL পাবেন যেমন: <span style="color:var(--neon)">https://xxx.railway.app</span><br>
+        ৪. সেই URL + <span style="color:var(--neon)">/webhook/YOUR-USER-ID</span> = আপনার Webhook URL
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CHAT ═══ -->
+  <div class="page" id="page-chat">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:12px;font-weight:600;color:var(--tm);text-transform:uppercase;letter-spacing:1px">💬 চ্যাট লগ</div>
+      <button class="btn bo bsm" onclick="loadChat()">🔄 রিফ্রেশ</button>
+    </div>
+
+    <div class="card" style="padding:10px">
+      <div class="cl" id="chatLog">
+        <div style="text-align:center;color:var(--tm);padding:20px;font-size:13px">
+          লোড করতে রিফ্রেশ ক্লিক করুন
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">⚡ লাইভ টেস্ট (WhatsApp ছাড়াই)</div>
+      <p style="font-size:12px;color:var(--tm);margin-bottom:10px">সার্ভারে পাঠিয়ে AI রেসপন্স দেখুন</p>
+      <div style="display:flex;gap:7px">
+        <input class="fi" id="simMsg" placeholder="কাস্টমারের মেসেজ..." style="flex:1">
+        <button class="btn bp bsm" onclick="simMessage()">পাঠান</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════
+let S = {
+  userId: null,
+  serverUrl: localStorage.getItem('serverUrl') || '',
+  keywords: ['প্রডাক্ট','দাম','কিনতে চাই','অর্ডার','price','buy','নিতে চাই','প্যাকেজ','কত'],
+  settings: { AI: true, Ignore: true }
+};
+
+const SERVER = S.serverUrl || window.location.origin;
+
+// ══════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const splash = document.getElementById('splash');
+    splash.style.opacity = '0'; splash.style.transform = 'scale(1.04)';
+    setTimeout(() => {
+      splash.style.display = 'none';
+      const savedUser = localStorage.getItem('waUserId');
+      if (savedUser) { S.userId = savedUser; startApp(); }
+      else { document.getElementById('setupScreen').style.display = 'flex'; }
+    }, 700);
+  }, 2400);
+});
+
+function startApp() {
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('headerUserId').textContent = S.userId;
+  loadConfig();
+  loadStats();
+  updateWebhookDisplay();
+}
+
+// ══════════════════════════════════════
+//  SETUP
+// ══════════════════════════════════════
+function genVerifyToken() {
+  document.getElementById('setupVerifyToken').value = 'wa_' + Math.random().toString(36).substr(2,12).toUpperCase();
+}
+
+async function doSetup() {
+  const userId = document.getElementById('setupUserId').value.trim().replace(/\s+/g,'_');
+  const claudeKey = document.getElementById('setupClaudeKey').value.trim();
+  const phoneId = document.getElementById('setupPhoneId').value.trim();
+  const waToken = document.getElementById('setupWaToken').value.trim();
+  const verifyToken = document.getElementById('setupVerifyToken').value.trim() || genRand();
+
+  if (!userId || !claudeKey || !phoneId || !waToken) {
+    return notify('সব * ঘর পূরণ করুন!', true);
+  }
+
+  const btn = document.getElementById('setupBtn');
+  btn.innerHTML = '<div class="spin"></div> সেটআপ হচ্ছে...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${SERVER}/api/save-config`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId, claudeKey, waPhoneId: phoneId, waToken, waVerifyToken: verifyToken,
+        product: {}, payment: {}, keywords: S.keywords, settings: { ai: true, ignoreOthers: true } })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    localStorage.setItem('waUserId', userId);
+    localStorage.setItem('waVerifyToken', verifyToken);
+    S.userId = userId;
+    notify('✅ সেটআপ সম্পন্ন!');
+    setTimeout(startApp, 800);
+  } catch(e) {
+    notify('❌ ' + e.message, true);
+    btn.innerHTML = '✅ শুরু করুন';
+    btn.disabled = false;
+  }
+}
+
+// ══════════════════════════════════════
+//  CONFIG LOAD
+// ══════════════════════════════════════
+async function loadConfig() {
+  try {
+    const res = await fetch(`${SERVER}/api/config/${S.userId}`);
+    const data = await res.json();
+    if (!data.ok) return;
+    const c = data.config;
+    // Fill product fields
+    if (c.product) {
+      setVal('prodName', c.product.name); setVal('prodImage', c.product.image);
+      setVal('prodPrice', c.product.price); setVal('prodDiscount', c.product.discount);
+      setVal('prodBenefits', c.product.benefits); setVal('prodDesc', c.product.desc);
+      updateDashProd(c.product);
+    }
+    if (c.payment) {
+      setVal('payMethod', c.payment.method); setVal('payNum', c.payment.number);
+      setVal('payName', c.payment.name); setVal('payInst', c.payment.instructions);
+    }
+    if (c.keywords) { S.keywords = c.keywords; renderKw(); }
+    if (c.settings) {
+      S.settings.AI = c.settings.ai !== false;
+      S.settings.Ignore = c.settings.ignoreOthers !== false;
+      ['AI','Ignore'].forEach(f => document.getElementById('tog'+f)?.classList.toggle('on', S.settings[f]));
+    }
+  } catch(e) { /* offline or not yet saved */ }
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch(`${SERVER}/api/stats/${S.userId}`);
+    const data = await res.json();
+    if (data.ok && data.stats) {
+      setTxt('stTotal', data.stats.total ?? 0);
+      setTxt('stReplied', data.stats.replied ?? 0);
+      setTxt('stLeads', data.stats.leads ?? 0);
+      setTxt('stIgnored', (data.stats.total ?? 0) - (data.stats.replied ?? 0));
+    }
+  } catch(e) {}
+}
+
+async function loadChat() {
+  try {
+    const res = await fetch(`${SERVER}/api/conversations/${S.userId}`);
+    const data = await res.json();
+    if (!data.ok) return;
+    const log = document.getElementById('chatLog');
+    log.innerHTML = '';
+    if (!data.conversations.length) {
+      log.innerHTML = '<div style="text-align:center;color:var(--tm);padding:20px;font-size:13px">এখনো কোনো কথোপকথন নেই</div>';
+      return;
+    }
+    data.conversations.forEach(c => addMsg(c.type === 'incoming' ? 'user' : 'agent', c.text, c.from, c.timestamp));
+  } catch(e) { notify('চ্যাট লোড হয়নি', true); }
+}
+
+// ══════════════════════════════════════
+//  SAVE
+// ══════════════════════════════════════
+async function saveProduct() {
+  const name = getVal('prodName'), price = getVal('prodPrice'), benefits = getVal('prodBenefits');
+  if (!name || !price || !benefits) return notify('নাম, দাম ও সুবিধা লেখা আবশ্যক!', true);
+  await saveToServer({ product: { name, image: getVal('prodImage'), price, discount: getVal('prodDiscount'), benefits, desc: getVal('prodDesc') } });
+  updateDashProd({ name, price: getVal('prodPrice'), discount: getVal('prodDiscount'), benefits });
+}
+
+async function saveAll() {
+  await saveToServer({
+    payment: { method: getVal('payMethod'), number: getVal('payNum'), name: getVal('payName'), instructions: getVal('payInst') },
+    keywords: S.keywords,
+    settings: { ai: S.settings.AI, ignoreOthers: S.settings.Ignore }
+  });
+}
+
+async function saveToServer(extra = {}) {
+  const btn = event?.target;
+  if (btn) { btn.innerHTML = '<div class="spin"></div>'; btn.disabled = true; }
+  try {
+    const stored = JSON.parse(localStorage.getItem('waSetupData') || '{}');
+    const body = { userId: S.userId, claudeKey: stored.claudeKey || '(stored)', waPhoneId: stored.phoneId || '(stored)', waToken: stored.waToken || '(stored)', waVerifyToken: localStorage.getItem('waVerifyToken') || '', ...extra };
+    const res = await fetch(`${SERVER}/api/save-config`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    notify('✅ সেভ হয়েছে!');
+  } catch(e) { notify('❌ ' + e.message, true); }
+  if (btn) { btn.disabled = false; }
+}
+
+// ══════════════════════════════════════
+//  TEST AGENT
+// ══════════════════════════════════════
+async function testAgent() {
+  const msg = getVal('testMsg');
+  if (!msg) return notify('একটা মেসেজ লিখুন!', true);
+  const res2 = document.getElementById('testResult');
+  res2.innerHTML = '<div class="tyd"><div class="tdd"></div><div class="tdd"></div><div class="tdd"></div></div>';
+  try {
+    const res = await fetch(`${SERVER}/api/test-agent`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: S.userId, message: msg }) });
+    const data = await res.json();
+    res2.innerHTML = `<span style="color:var(--tw)">${(data.reply||'').replace(/\n/g,'<br>').replace(/\*(.*?)\*/g,'<strong>$1</strong>')}</span><span class="aicur"></span>`;
+  } catch(e) { res2.innerHTML = `<span style="color:var(--err)">❌ সার্ভারে কানেক্ট হয়নি: ${e.message}</span>`; }
+}
+
+async function simMessage() {
+  const msg = getVal('simMsg');
+  if (!msg) return;
+  addMsg('user', msg, 'আপনি');
+  setVal('simMsg', '');
+  try {
+    const res = await fetch(`${SERVER}/api/test-agent`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: S.userId, message: msg }) });
+    const data = await res.json();
+    if (data.reply) addMsg('agent', data.reply, 'AI এজেন্ট');
+  } catch(e) { addMsg('agent', '❌ সার্ভারে কানেক্ট হয়নি', 'Error'); }
+}
+
+// ══════════════════════════════════════
+//  UI HELPERS
+// ══════════════════════════════════════
+function sw(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+tab).classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  if (tab === 'chat') loadChat();
+  if (tab === 'dashboard') loadStats();
+}
+
+function tog(name) {
+  const el = document.getElementById('tog'+name);
+  S.settings[name] = !S.settings[name];
+  el.classList.toggle('on', S.settings[name]);
+}
+
+function addKw() {
+  const w = getVal('kwInput').trim();
+  if (!w || S.keywords.includes(w)) return;
+  S.keywords.push(w); renderKw(); setVal('kwInput','');
+}
+function removeKw(w) { S.keywords = S.keywords.filter(k=>k!==w); renderKw(); }
+function renderKw() {
+  document.getElementById('kwTags').innerHTML = S.keywords.map(k=>`<div class="tag">${k} <span class="trm" onclick="removeKw('${k}')">×</span></div>`).join('');
+}
+
+function updateDashProd(p) {
+  if (!p || !p.name) return;
+  const priceHtml = p.discount && p.discount < p.price
+    ? `<span style="color:var(--neon);font-weight:700">৳${p.discount}</span> <span style="color:var(--tm);text-decoration:line-through;font-size:11px">৳${p.price}</span>`
+    : `<span style="color:var(--neon);font-weight:700">৳${p.price}</span>`;
+  document.getElementById('dashProd').innerHTML = `
+    <div style="display:flex;gap:10px;align-items:center">
+      ${p.image ? `<img src="${p.image}" style="width:52px;height:52px;border-radius:9px;object-fit:cover;border:1px solid var(--cbr);flex-shrink:0" onerror="this.outerHTML='<div style=\\'width:52px;height:52px;background:rgba(30,136,229,.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0\\'>📦</div>'" >` : '<div style="width:52px;height:52px;background:rgba(30,136,229,.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">📦</div>'}
+      <div style="flex:1"><div style="font-size:14px;font-weight:700">${p.name}</div><div style="margin-top:3px">${priceHtml}</div><div style="margin-top:4px"><span class="badge bg-green">✅ সক্রিয়</span></div></div>
+    </div>`;
+}
+
+function updateWebhookDisplay() {
+  const url = `${SERVER}/webhook/${S.userId || 'YOUR-USER-ID'}`;
+  setTxt('webhookUrl', url);
+  setTxt('verifyTokenDisplay', localStorage.getItem('waVerifyToken') || '—');
+}
+
+function copyWebhook() {
+  navigator.clipboard.writeText(getVal('webhookUrl') || document.getElementById('webhookUrl').textContent);
+  notify('✅ URL কপি হয়েছে!');
+}
+function copyVerify() {
+  navigator.clipboard.writeText(document.getElementById('verifyTokenDisplay').textContent);
+  notify('✅ Token কপি হয়েছে!');
+}
+
+function addMsg(type, text, sender, ts) {
+  const log = document.getElementById('chatLog');
+  if (log.querySelector('[style*="লোড করতে"]')) log.innerHTML = '';
+  const now = ts ? new Date(ts).toLocaleTimeString('bn-BD', {hour:'2-digit',minute:'2-digit'}) : new Date().toLocaleTimeString('bn-BD',{hour:'2-digit',minute:'2-digit'});
+  const d = document.createElement('div');
+  d.className = 'cm ' + type;
+  d.innerHTML = `<div class="ms">${type==='agent'?'🤖 AI এজেন্ট':'👤 '+sender}</div><div class="mb">${text.replace(/\n/g,'<br>').replace(/\*(.*?)\*/g,'<strong>$1</strong>')}</div><div class="mt">${now}</div>`;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+
+function logout() {
+  if (!confirm('অন্য অ্যাকাউন্টে যেতে চান?')) return;
+  localStorage.removeItem('waUserId');
+  location.reload();
+}
+
+function notify(msg, isErr=false) {
+  const el = document.getElementById('notify');
+  el.textContent = msg; el.className = 'notify'+(isErr?' err':'');
+  void el.offsetWidth; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 3000);
+}
+
+function togglePw(id) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function genRand() { return 'WA_'+Math.random().toString(36).substr(2,10).toUpperCase(); }
+function getVal(id) { return document.getElementById(id)?.value || ''; }
+function setVal(id, val) { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; }
+function setTxt(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
+// Init keywords
+renderKw();
+</script>
+</body>
+</html>
