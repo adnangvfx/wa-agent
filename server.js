@@ -12,7 +12,18 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 app.use(cors());
+// Serve from public/ folder OR root (works both ways)
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
+
+// Root → index.html (works whether it's in public/ or root)
+app.get('/', (req, res) => {
+  const publicPath = path.join(__dirname, 'public', 'index.html');
+  const rootPath = path.join(__dirname, 'index.html');
+  if (fs.existsSync(publicPath)) res.sendFile(publicPath);
+  else if (fs.existsSync(rootPath)) res.sendFile(rootPath);
+  else res.send('Server is running! index.html not found.');
+});
 
 const DB_FILE = path.join(__dirname, 'db.json');
 
